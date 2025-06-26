@@ -1,0 +1,24 @@
+# 가상 환경 관련 파일 및 폴더
+# pyenv가 관리하는 가상 환경은 ~/.pyenv에 위치하므로,
+# 프로젝트 폴더 내의 가상 환경 폴더(venv)와 연결 파일(.python-version)을 모두 제외합니다.
+venv/
+*.venv
+.python-version
+
+# 민감한 정보 파일 제외
+.env
+
+# Python이 생성하는 캐시 파일
+__pycache__/
+*.pyc
+
+# 운영체제별 임시 파일
+.DS_Store # macOS
+Thumbs.db # Windows
+desktop.ini # Windows
+
+# VS Code 설정 폴더 (개인 설정이므로 공유하지 않음)
+.vscode/
+
+# Streamlit 관련 로컬 캐시 및 데이터
+.streamlit/local/

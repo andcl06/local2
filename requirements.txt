@@ -1,0 +1,63 @@
+# =========================================================
+# HEART Insight AI 프로젝트 전체 라이브러리 목록
+# 기획안 '6. 개발 환경' 섹션 기반
+# =========================================================
+
+# 1. 웹 프레임워크 및 UI
+streamlit==1.36.0 # Streamlit 버전 고정 (호환성 보장)
+plotly==5.22.0     # 인터랙티브 시각화
+matplotlib
+seaborn
+altair
+
+# 2. 웹 스크래핑
+requests
+beautifulsoup4
+# Newspaper3k # 한국어 뉴스 스크래핑 시 인코딩 문제 발생 가능성 있어 일단 제외
+# scrapy # 대규모 크롤링 시 필요 (프로토타입 단계에서는 제외)
+# selenium # 동적 웹페이지 스크래핑 시 필요 (추후 필요하면 추가)
+
+# 3. NLP 전처리 및 분석
+konlpy
+# konlpy 설치 시 mecab-ko 의존성 필요 (WSL2에서 sudo apt-get install mecab-ko)
+# jgnhan/ko-sroberta-multitask 모델 사용을 위해 transformers 및 sentence-transformers 필요
+transformers
+sentence-transformers
+# BERTopic 사용을 위해 gensim 및 scikit-learn 필요
+gensim
+scikit-learn
+bertopic[visualization] # BERTopic 설치 및 시각화 의존성 포함
+
+# 4. 트렌드 예측 및 시계열 분석
+prophet # Facebook Prophet
+statsmodels
+tensorflow==2.16.1 # LSTM 등 신경망 모델 사용 시 필요 (버전 명시)
+# torch # 딥러닝 백엔드 (tensorflow 또는 torch 선택)
+networkx # 관계/네트워크 분석
+
+# 5. 데이터 조작
+pandas
+numpy
+
+# 6. 보고서 생성
+python-docx
+reportlab
+fpdf
+
+# 7. 보안 및 유틸리티
+python-dotenv
+loguru
+
+# 8. LangChain 및 관련 라이브러리 (기존 협업 코드를 위해 필요할 수 있어 포함)
+# Potens.dev 대신 OpenAI를 사용할 경우를 대비
+langchain
+langchain-openai
+tiktoken
+pypdf
+docx2txt
+unstructured
+faiss-cpu
+chromadb
+pydantic<2.0.0 # pydantic v2와 호환성 문제 방지
+
+# =========================================================
