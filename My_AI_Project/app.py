@@ -1,16 +1,16 @@
 # app.py
 # Streamlit 기반 HEART Insight AI 웹 솔루션의 메인 파일 (모든 기능 통합)
 
-# -----------------
+# -----------------------------------------------------
 # 1. 라이브러리 임포트 (파일 최상단)
-# -----------------
+# -----------------------------------------------------
 import streamlit as st
 import os
 from dotenv import load_dotenv
 from loguru import logger
 import pandas as pd
 import time
-import uuid # uuid 사용을 위해 임포트
+import uuid
 
 # 'modules' 폴더에 있는 커스텀 모듈들을 임포트합니다.
 from modules import ai_interface
@@ -41,7 +41,7 @@ def main():
     POTENS_API_KEY = os.getenv("POTENS_API_KEY")
     
     # -----------------
-    # 2-2. 페이지 기본 설정
+    # 2-2. 페이지 기본 설정 (첫 Streamlit 명령어여야 함)
     # -----------------
     st.set_page_config(
         page_title="현대해상 HEART Insight AI",
@@ -53,20 +53,13 @@ def main():
     # -----------------
     # 2-3. Streamlit 세션 상태(Session State) 초기화
     # -----------------
-    if "messages" not in st.session_state:
-        st.session_state["messages"] = []
-    if "api_ready" not in st.session_state:
-        st.session_state["api_ready"] = False
-    if "data_collected" not in st.session_state:
-        st.session_state["data_collected"] = False
-    if "collected_data" not in st.session_state:
-        st.session_state["collected_data"] = []
-    if "topic_analysis_result" not in st.session_state:
-        st.session_state["topic_analysis_result"] = None
-    if "rag_conversation" not in st.session_state:
-        st.session_state["rag_conversation"] = None
-    if "rag_processed" not in st.session_state:
-        st.session_state["rag_processed"] = False
+    if "messages" not in st.session_state: st.session_state["messages"] = []
+    if "api_ready" not in st.session_state: st.session_state["api_ready"] = False
+    if "data_collected" not in st.session_state: st.session_state["data_collected"] = False
+    if "collected_data" not in st.session_state: st.session_state["collected_data"] = []
+    if "topic_analysis_result" not in st.session_state: st.session_state["topic_analysis_result"] = None
+    if "rag_conversation" not in st.session_state: st.session_state["rag_conversation"] = None
+    if "rag_processed" not in st.session_state: st.session_state["rag_processed"] = False
 
     # -----------------
     # 2-4. UI 구성: 메인 화면
@@ -74,17 +67,14 @@ def main():
     st.title("🚗 현대해상 HEART Insight AI")
     st.subheader("미래 모빌리티 트렌드 분석 및 보험 시사점 도출 솔루션")
     st.markdown("---")
-
     st.markdown(
         """
         **HEART Insight AI**는 급변하는 미래 모빌리티 환경의 트렌드를 심층 분석하고,
         이를 현대해상의 보험 상품 개발 및 리스크 평가에 필요한 핵심 시사점과 기회 요인으로 도출하는 AI 기반 솔루션입니다.
         """
     )
-
     st.header("📈 AI 트렌드 분석 대시보드")
     st.info("이곳에 뉴스, 보고서, 특허 등에서 수집된 데이터를 기반으로 한 트렌드 예측 그래프, 키워드 네트워크, 토픽 모델링 결과 등 인터랙티브 시각화가 구현될 예정입니다.")
-
     if st.session_state.data_collected:
         st.markdown("### 수집된 데이터 미리보기")
         st.dataframe(pd.DataFrame(st.session_state.collected_data)[:10], use_container_width=True)
@@ -128,7 +118,7 @@ def main():
                         logger.error(f"RAG chatbot error: {e}")
                 elif st.session_state.api_ready:
                     response = ai_interface.call_potens_api(
-                        user_query=user_query, api_key=POTENS_API_KEY, history=st.session_state.messages
+                        prompt_message=user_query, api_key=POTENS_API_KEY, history=st.session_state.messages
                     )
                 else:
                     response = "⚠️ 챗봇 기능이 비활성화되었습니다. 사이드바에서 기능을 활성화해주세요."
@@ -160,7 +150,8 @@ def main():
             else:
                 with st.spinner("문서 처리 중..."):
                     try:
-                        os.environ["OPENAI_API_BASE"] = "https://api.potens.dev/v1"
+                        # RAG 체인 생성 (Potens.dev API 키 사용)
+                        os.environ["OPENAI_API_BASE"] = "https://ai.potens.ai/api/chat" # base_url 설정
                         files_text = get_text(uploaded_files)
                         if not files_text:
                             st.error("⚠️ 업로드된 파일에서 텍스트를 추출하는 데 실패했습니다.")
@@ -173,7 +164,6 @@ def main():
                     except Exception as e:
                         st.error(f"❌ 문서 처리 중 오류가 발생했습니다: {e}")
                         st.session_state.rag_processed = False
-
         st.markdown("---")
         st.subheader("💬 AI 트렌드 챗봇")
         if st.button("AI 챗봇 준비", key="activate_chatbot"):
@@ -199,13 +189,7 @@ def main():
                         st.info(f"'{keyword}' 관련 기사 {len(articles)}개 수집 완료.")
                 if not collected_articles:
                     st.warning("⚠️ 데이터를 수집하지 못했습니다. 테스트용 더미 데이터를 사용합니다.")
-                    collected_articles = [
-                        {"title": "전기차 배터리 리스크", "content": "최근 전기차 배터리 화재 사고가 빈번히 발생하며 리스크 평가가 강화되고 있습니다.", "source": "Dummy Data", "keywords": "전기차 배터리"},
-                        {"title": "자율주행 레벨 4 상용화", "content": "자율주행 레벨 4 기술 도입에 따라, 사고 책임이 운전자에서 제조사로 전환될 가능성이 커지고 있습니다.", "source": "Dummy Data", "keywords": "자율주행 보험"},
-                        {"title": "UAM 시장 전망", "content": "도심항공교통 UAM이 2030년 상용화를 목표로 실증 단계에 진입했습니다. 이에 따른 항공 보험 시장의 변화가 예상됩니다.", "source": "Dummy Data", "keywords": "UAM 시장"},
-                        {"title": "PBV 맞춤형 보험", "content": "현대차의 목적 기반 모빌리티(PBV)는 이용 목적에 따라 보험을 구독 형태로 가입하는 새로운 상품이 필요합니다.", "source": "Dummy Data", "keywords": "PBV 현대차"},
-                        {"title": "MaaS 생태계와 보험", "content": "다양한 교통수단을 통합하는 MaaS 서비스 확산으로, 이용 건별로 보장되는 온디맨드(On-demand) 보험 모델이 주목받고 있습니다.", "source": "Dummy Data", "keywords": "MaaS 서비스"},
-                    ]
+                    collected_articles = [{"title": "전기차 배터리 리스크", "content": "내용", "source": "Dummy Data", "keywords": "전기차"}, {"title": "자율주행", "content": "내용", "source": "Dummy Data", "keywords": "자율주행"}] # Simplified dummy data
                 if collected_articles:
                     st.session_state.collected_data = collected_articles
                     st.session_state.data_collected = True
@@ -255,7 +239,6 @@ def get_text(docs):
                 logger.info(f"Saved {doc.name} to temporary path: {temp_filename}")
             except Exception as e:
                 logger.error(f"Error saving file {doc.name} to temp: {e}", exc_info=True)
-                st.error(f"파일을 임시 저장하는 중 오류가 발생했습니다: {e}")
                 continue
             try:
                 if ext == '.pdf': loader = PyPDFLoader(temp_filename)
@@ -263,14 +246,12 @@ def get_text(docs):
                 elif ext == '.pptx': loader = UnstructuredPowerPointLoader(temp_filename)
                 else:
                     logger.warning(f"Unsupported file type: {ext}")
-                    st.warning(f"지원하지 않는 파일 형식입니다: {ext}")
                     continue
                 documents = loader.load()
                 doc_list.extend(documents)
                 logger.info(f"Loaded {len(documents)} documents from {doc.name}")
             except Exception as e:
                 logger.error(f"Error loading document from {doc.name}: {e}", exc_info=True)
-                st.error(f"문서 로딩 중 오류가 발생했습니다: {e}. 파일 내용을 확인해주세요.")
                 continue
     return doc_list
 
@@ -288,28 +269,19 @@ def get_vectorstore(text_chunks):
         return vectordb
     except Exception as e:
         logger.error(f"Failed to create vectorstore: {e}", exc_info=True)
-        st.error("❌ 벡터 스토어 생성 중 오류가 발생했습니다. 라이브러리 설치를 확인해주세요.")
         return None
 
 def get_conversation_chain(vectorstore, api_key):
     try:
-        llm = ChatOpenAI(api_key=api_key, model_name='gpt-3.5-turbo', temperature=0, base_url="https://api.potens.dev/v1")
+        llm = ChatOpenAI(api_key=api_key, model_name='gpt-3.5-turbo', temperature=0, base_url="https://ai.potens.ai/api/chat")
         logger.info(f"ChatOpenAI model initialized with base_url: {llm.base_url}")
-    except Exception as e:
-        logger.error(f"Failed to initialize ChatOpenAI: {e}", exc_info=True)
-        st.error("❌ LLM 모델 초기화에 실패했습니다. API 키와 엔드포인트 설정을 확인해주세요.")
-        return None
-    try:
-        conversation_chain = ConversationalRetrievalChain.from_llm(
+        return ConversationalRetrievalChain.from_llm(
             llm=llm, chain_type="stuff", retriever=vectorstore.as_retriever(search_type='mmr', verbose=True),
             memory=ConversationBufferMemory(memory_key='chat_history', return_messages=True, output_key='answer'),
             get_chat_history=lambda h: h, return_source_documents=True, verbose=True
         )
-        logger.info("ConversationalRetrievalChain created successfully.")
-        return conversation_chain
     except Exception as e:
         logger.error(f"Failed to create conversation chain: {e}", exc_info=True)
-        st.error("❌ 대화 체인 생성 중 예상치 못한 오류가 발생했습니다. 개발자에게 문의해주세요.")
         return None
 
 # -----------------------------------------------------
