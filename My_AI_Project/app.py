@@ -16,6 +16,7 @@ import uuid
 from modules import ai_interface
 from modules import data_collector
 from modules import trend_analyzer
+from modules import document_processor
 
 # --- LangChain RAG 기능에 필요한 라이브러리 임포트 ---
 import tiktoken
@@ -150,14 +151,13 @@ def main():
             else:
                 with st.spinner("문서 처리 중..."):
                     try:
-                        # RAG 체인 생성 (Potens.dev API 키 사용)
-                        os.environ["OPENAI_API_BASE"] = "https://ai.potens.ai/api/chat" # base_url 설정
-                        files_text = get_text(uploaded_files)
+                        os.environ["OPENAI_API_BASE"] = "https://ai.potens.ai/api/chat"
+                        files_text = document_processor.get_text(uploaded_files)
                         if not files_text:
                             st.error("⚠️ 업로드된 파일에서 텍스트를 추출하는 데 실패했습니다.")
                         else:
-                            vectorstore = get_vectorstore(get_text_chunks(files_text))
-                            st.session_state.rag_conversation = get_conversation_chain(vectorstore, POTENS_API_KEY)
+                            vectorstore = document_processor.get_vectorstore(document_processor.get_text_chunks(files_text))
+                            st.session_state.rag_conversation = document_processor.get_conversation_chain(vectorstore, POTENS_API_KEY)
                             if st.session_state.rag_conversation:
                                 st.session_state.rag_processed = True
                                 st.success("✅ 문서 처리가 완료되었습니다. 이제 문서에 대해 질문해보세요!")
