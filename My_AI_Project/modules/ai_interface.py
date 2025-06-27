@@ -44,7 +44,7 @@ def call_potens_api(prompt_message: str, api_key: str, history: List[Dict[str, s
     
     try:
         logger.info(f"Potens.dev API 호출 시작 (엔드포인트: {API_URL})")
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=20)
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=60)
         response.raise_for_status() # HTTP 오류 발생 시 예외 발생
         
         response_json = response.json()

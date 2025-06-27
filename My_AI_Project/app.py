@@ -74,23 +74,34 @@ def main():
         이를 현대해상의 보험 상품 개발 및 리스크 평가에 필요한 핵심 시사점과 기회 요인으로 도출하는 AI 기반 솔루션입니다.
         """
     )
+
+# 5. AI 트렌드 분석 대시보드
+# -----------------
     st.header("📈 AI 트렌드 분석 대시보드")
     st.info("이곳에 뉴스, 보고서, 특허 등에서 수집된 데이터를 기반으로 한 트렌드 예측 그래프, 키워드 네트워크, 토픽 모델링 결과 등 인터랙티브 시각화가 구현될 예정입니다.")
+
+    # --- 수집된 데이터 및 분석 결과가 있을 때만 대시보드 내용 표시 ---
     if st.session_state.data_collected:
         st.markdown("### 수집된 데이터 미리보기")
+        # 수집된 데이터 중 10개만 미리보기
         st.dataframe(pd.DataFrame(st.session_state.collected_data)[:10], use_container_width=True)
         st.markdown("---")
+
         if st.session_state.topic_analysis_result and st.session_state.topic_analysis_result['fig_html']:
             st.markdown("### 📊 토픽 모델링 시각화")
+            # Plotly 그래프를 HTML 컴포넌트로 표시
             st.components.v1.html(st.session_state.topic_analysis_result['fig_html'], height=600)
             st.markdown("---")
+
             st.markdown("### 📝 주요 트렌드 (토픽) 요약")
+            # 토픽 정보를 데이터프레임으로 표시
             topic_info_df = pd.DataFrame(st.session_state.topic_analysis_result['topic_info'])
             topic_info_df.index.name = 'Topic ID'
             st.dataframe(topic_info_df[['Count', 'Name', 'Representation']], use_container_width=True)
             st.success("✅ 트렌드 분석 결과가 대시보드에 반영되었습니다!")
         else:
             st.warning("토픽 모델링 결과를 불러오는 데 실패했습니다. 로그를 확인해주세요.")
+
     st.markdown("---")
 
     # -----------------
@@ -164,29 +175,21 @@ def main():
                     except Exception as e:
                         st.error(f"❌ 문서 처리 중 오류가 발생했습니다: {e}")
                         st.session_state.rag_processed = False
-        st.markdown("---")
-        st.subheader("💬 AI 트렌드 챗봇")
-        if st.button("AI 챗봇 준비", key="activate_chatbot"):
-            if POTENS_API_KEY:
-                st.session_state.api_ready = True
-                st.success("🎉 Potens.dev API 준비 완료! 이제 챗봇에 질문해보세요.")
-                logger.info("Potens.dev API is ready.")
-                st.experimental_rerun()
-            else:
-                st.error("API 키가 설정되지 않았습니다. `.env` 파일을 확인해주세요.")
-                st.session_state.api_ready = False
-
+#트렌드 수집 분석 버튼
         st.markdown("---")
         st.header("트렌드 데이터 수집 및 분석")
         if st.button("트렌드 데이터 수집 및 분석 시작", help="뉴스 기사를 크롤링하고 AI 분석을 수행합니다."):
             if not st.session_state.data_collected:
-                keywords = ["전기차 배터리", "자율주행 보험", "UAM 시장", "PBV 현대차", "MaaS 서비스"]
+                # API 호출을 위해 키워드를 영어로 변경하는 것이 좋습니다.
+                keywords = ["electric vehicle battery", "self-driving car insurance", "UAM market", "PBV Hyundai", "MaaS service"]
                 collected_articles = []
                 with st.spinner("뉴스 기사 데이터 수집 중..."):
                     for keyword in keywords:
-                        articles = data_collector.scrape_google_news(keyword, pages=1)
+                        # scrape_google_news_api 함수 호출로 변경!
+                        articles = data_collector.scrape_google_news_api(keyword, num_results=5) # num_results=5로 5개씩 요청
                         collected_articles.extend(articles)
                         st.info(f"'{keyword}' 관련 기사 {len(articles)}개 수집 완료.")
+                
                 if not collected_articles:
                     st.warning("⚠️ 데이터를 수집하지 못했습니다. 테스트용 더미 데이터를 사용합니다.")
                     collected_articles = [{"title": "전기차 배터리 리스크", "content": "내용", "source": "Dummy Data", "keywords": "전기차"}, {"title": "자율주행", "content": "내용", "source": "Dummy Data", "keywords": "자율주행"}] # Simplified dummy data
@@ -198,7 +201,7 @@ def main():
                         analysis_result = trend_analyzer.perform_topic_modeling(st.session_state.collected_data)
                         st.session_state.topic_analysis_result = analysis_result
                     if st.session_state.topic_analysis_result and st.session_state.topic_analysis_result['topics']:
-                        st.success("✅ AI 트렌드 분석이 성공적으로 완료되었습니다. 대시보드를 확인하세요!")
+                        st.success("✅ 트렌드 분석이 성공적으로 완료되었습니다. 대시보드를 확인하세요!")
                     else:
                         st.error("❌ AI 분석 중 오류가 발생했습니다. 로그를 확인해주세요.")
                 else:
@@ -207,6 +210,21 @@ def main():
                     st.session_state.topic_analysis_result = None
             else:
                 st.info("데이터 수집 및 분석이 이미 완료되었습니다. 앱을 새로고침하여 다시 시작하세요.")
+# 요기까지
+#ai챗봇활성화
+        st.markdown("---")
+        st.subheader("💬 AI 트렌드 챗봇")
+        if st.button("AI 챗봇 준비", key="activate_chatbot"):
+            if POTENS_API_KEY:
+                st.session_state.api_ready = True
+                st.success("🎉 Potens.dev API 준비 완료! 이제 챗봇에 질문해보세요.")
+                st.experimental_rerun()
+            else:
+                st.error("API 키가 설정되지 않았습니다. `.env` 파일을 확인해주세요.")
+                st.session_state.api_ready = False
+
+        st.markdown("---")
+#ai챗봇 끝
 
         st.markdown("---")
         st.header("대화 초기화")
@@ -273,8 +291,8 @@ def get_vectorstore(text_chunks):
 
 def get_conversation_chain(vectorstore, api_key):
     try:
-        llm = ChatOpenAI(api_key=api_key, model_name='gpt-3.5-turbo', temperature=0, base_url="https://ai.potens.ai/api/chat")
-        logger.info(f"ChatOpenAI model initialized with base_url: {llm.base_url}")
+        llm = ChatOpenAI(api_key=api_key, model_name='claude-3.7-sonnet', temperature=0, openai_api_base="https://potens.ai/")
+        logger.info(f"ChatOpenAI model initialized with base_url: {llm.openai_api_base}")
         return ConversationalRetrievalChain.from_llm(
             llm=llm, chain_type="stuff", retriever=vectorstore.as_retriever(search_type='mmr', verbose=True),
             memory=ConversationBufferMemory(memory_key='chat_history', return_messages=True, output_key='answer'),

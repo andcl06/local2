@@ -5,15 +5,14 @@ import pandas as pd
 from loguru import logger
 from typing import List, Dict, Any
 import numpy as np
+import umap # <-- umap 임포트 추가
 from bertopic import BERTopic
 from bertopic.representation import KeyBERTInspired
 from sentence_transformers import SentenceTransformer
-# KoNLPy 설치 및 Mecab 백엔드 의존성
 from konlpy.tag import Mecab
 
 # -----------------------------------------------------
 # 1. 한국어 텍스트 분석을 위한 KoNLPy-Mecab 초기화
-#    - Mecab 설치가 실패할 경우를 대비한 예외 처리 포함
 # -----------------------------------------------------
 try:
     mecab = Mecab()
@@ -25,7 +24,6 @@ except Exception as e:
 def preprocess_korean_text(text_list: List[str]) -> List[str]:
     """
     한국어 텍스트를 토큰화하고 불용어를 제거하여 전처리합니다.
-    - Mecab이 설치되지 않았을 경우, 원본 텍스트를 그대로 반환합니다.
     """
     if mecab is None:
         logger.warning("Mecab is not available. Skipping text preprocessing and tokenization.")
@@ -34,12 +32,10 @@ def preprocess_korean_text(text_list: List[str]) -> List[str]:
     logger.info("Starting Korean text preprocessing...")
     processed_texts = []
     
-    # 불용어(stopwords) 리스트 (기획안의 '텍스트 정제' 단계)
     stopwords = ['은', '는', '이', '가', '을', '를', '에', '와', '과', '하다', '있다', '없다', '되다', '이다', '것', '수', '등', '등등']
     
     for text in text_list:
         try:
-            # Mecab을 사용해 명사, 동사, 형용사만 추출
             words = mecab.pos(text)
             filtered_words = [
                 word[0] for word in words 
@@ -48,7 +44,7 @@ def preprocess_korean_text(text_list: List[str]) -> List[str]:
             processed_texts.append(' '.join(filtered_words))
         except Exception as e:
             logger.warning(f"Failed to preprocess text with Mecab: {e}. Skipping this document.")
-            processed_texts.append(text) # 오류 발생 시 원본 텍스트 유지
+            processed_texts.append(text)
         
     logger.info("Korean text preprocessing finished.")
     return processed_texts
@@ -57,12 +53,6 @@ def perform_topic_modeling(articles: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     수집된 뉴스 기사를 기반으로 BERTopic 모델링을 수행합니다.
     - 시각화 생성 시 발생하는 torch 오류를 회피하는 로직이 포함됩니다.
-    
-    Args:
-        articles (List[Dict[str, Any]]): data_collector에서 수집된 기사 데이터.
-        
-    Returns:
-        Dict[str, Any]: 토픽 모델링 결과 (토픽 정보, 시각화 데이터).
     """
     if not articles:
         logger.warning("No articles provided for topic modeling.")
@@ -73,24 +63,27 @@ def perform_topic_modeling(articles: List[Dict[str, Any]]) -> Dict[str, Any]:
     df = pd.DataFrame(articles)
     documents = df['content'].tolist()
     
-    # 텍스트 전처리
     preprocessed_documents = preprocess_korean_text(documents)
     
     # BERTopic 모델 초기화 및 학습
     try:
         # Sentence-Transformer 모델을 한국어 모델로 명시적으로 설정
-        # 'jhgan/ko-sroberta-multitask' 모델은 huggingface_hub에서 다운로드
         embedding_model = SentenceTransformer("jhgan/ko-sroberta-multitask")
         
         # BERTopic 모델 초기화 (representation_model은 KeyBERTInspired 사용)
         representation_model = KeyBERTInspired()
         
+        # --- UMAP 모델 파라미터 동적 계산 (scipy 오류 해결) ---
+        num_docs = len(preprocessed_documents)
+        n_neighbors = min(num_docs - 1, 15) if num_docs > 1 else 1
+        
         topic_model = BERTopic(
-            language="multilingual", # 한국어 포함 여러 언어 지원
+            language="multilingual",
             calculate_probabilities=True,
-            embedding_model=embedding_model, # 명시적으로 임베딩 모델 전달
+            embedding_model=embedding_model,
             representation_model=representation_model,
-            verbose=True, # 상세 로그 출력
+            umap_model=umap.UMAP(n_neighbors=n_neighbors, min_dist=0.0, metric='cosine', random_state=42), # <-- 수정된 부분
+            verbose=True,
         )
         
         # 모델 학습 및 토픽 추출
@@ -101,10 +94,7 @@ def perform_topic_modeling(articles: List[Dict[str, Any]]) -> Dict[str, Any]:
         
         logger.success(f"Topic modeling completed successfully. Found {len(topic_info)} topics.")
         
-        # ------------------------------------------------------------------
-        # 2. 시각화 생성에 대한 예외 처리
-        #    - torch/backend 오류 발생 시 시각화는 건너뛰고 나머지 결과는 반환
-        # ------------------------------------------------------------------
+        # --- 2. 시각화 생성에 대한 예외 처리 ---
         fig_html = None
         try:
             fig = topic_model.visualize_topics()
@@ -127,7 +117,6 @@ def perform_topic_modeling(articles: List[Dict[str, Any]]) -> Dict[str, Any]:
 if __name__ == '__main__':
     # 모듈 테스트를 위한 코드
     print("--- BERTopic 모델링 테스트 ---")
-    # 임시 테스트 데이터 (실제 수집 데이터처럼 가정)
     test_articles = [
         {"title": "전기차 배터리 화재 예방 기술", "content": "최근 전기차 배터리 열 폭주를 막는 기술 개발이 중요해지고 있습니다. 이는 보험 산업의 새로운 리스크 요인으로 부상합니다.", "source": "test_data"},
         {"title": "자율주행 레벨4 보험 상품 개발 동향", "content": "자율주행차의 사고 책임 소재를 운전자에서 제조사로 바꾸는 보험 상품이 연구되고 있습니다. 현대해상 같은 보험사에게 새로운 기회입니다.", "source": "test_data"},

@@ -70,8 +70,10 @@ def get_vectorstore(text_chunks):
 
 def get_conversation_chain(vectorstore, api_key):
     try:
-        llm = ChatOpenAI(api_key=api_key, model_name='gpt-3.5-turbo', temperature=0, base_url="https://ai.potens.ai/api/chat")
-        logger.info(f"ChatOpenAI model initialized with base_url: {llm.base_url}")
+        llm = ChatOpenAI(api_key=api_key, model_name='gpt-3.5-turbo', temperature=0, openai_api_base="https://potens.ai/")
+        logger.info(f"ChatOpenAI model initialized with openai_api_base: {llm.openai_api_base}")
+        # logger.info("ChatOpenAI model initialized with custom API base.")
+
         return ConversationalRetrievalChain.from_llm(
             llm=llm, chain_type="stuff", retriever=vectorstore.as_retriever(search_type='mmr', verbose=True),
             memory=ConversationBufferMemory(memory_key='chat_history', return_messages=True, output_key='answer'),
