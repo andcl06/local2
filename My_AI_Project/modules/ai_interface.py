@@ -1,5 +1,5 @@
 # ai_interface.py
-# Potens.dev API 연동을 위한 모듈 (미연시 개발 성공 사례 기반)
+# Potens.dev API 연동을 위한 모듈
 
 import os
 import requests

@@ -27,6 +27,8 @@ scipy==1.11.4
 gensim==4.3.2
 pyLDAvis==3.4.1
 konlpy # Okt 형태소 분석기 사용
+langdetect==1.0.9      # <--- 언어 감지 라이브러리 추가
+nltk==3.8.1       
 
 # 5. 기타 유틸리티
 typer
