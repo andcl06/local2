@@ -1,5 +1,0 @@
-[server]
-headless = true
-
-[runtime]
-python = "3.11"
