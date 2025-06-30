@@ -1,0 +1,33 @@
+# =========================================================
+# HEART Insight AI 프로젝트 라이브러리 목록 (Gensim 최종 버전)
+# =========================================================
+
+# 1. 웹 프레임워크 및 UI
+streamlit==1.36.0
+plotly==5.22.0
+matplotlib
+seaborn
+altair
+
+# 2. 웹 스크래핑
+requests
+beautifulsoup4
+
+# 3. NLP 및 LLM 연동
+loguru
+python-dotenv
+openai
+tiktoken
+# numpy 버전을 1.26.4로 고정하여 안정성 확보
+pandas
+numpy==1.26.4
+scipy==1.11.4
+
+# 4. 토픽 모델링 및 시각화 (Gensim & pyLDAvis)
+gensim==4.3.2
+pyLDAvis==3.4.1
+konlpy # Okt 형태소 분석기 사용
+
+# 5. 기타 유틸리티
+typer
+shellingham
