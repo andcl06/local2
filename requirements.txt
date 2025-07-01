@@ -1,5 +1,5 @@
 # =========================================================
-# HEART Insight AI 프로젝트 전체 라이브러리 목록 (통합 버전)
+# HEART Insight AI 프로젝트 라이브러리 목록 (Gensim 최종 버전)
 # =========================================================
 
 # 1. 웹 프레임워크 및 UI
@@ -13,37 +13,23 @@ altair
 requests
 beautifulsoup4
 
-# 3. NLP 및 LLM 연동 (Potens.dev & LangChain RAG)
+# 3. NLP 및 LLM 연동
 loguru
 python-dotenv
-openai               # OpenAI API 사용
-tiktoken             # 토큰 계산
-transformers         # BERTopic, Sentence-Transformers 의존성
-sentence-transformers
-bertopic[visualization]
-konlpy               # Mecab 사용
+openai
+tiktoken
+# numpy 버전을 1.26.4로 고정하여 안정성 확보
 pandas
-numpy
+numpy==1.26.4
+scipy==1.11.4
 
-# 4. RAG (문서 기반 질의응답)
-langchain
-langchain-community  # LangChain의 최신 버전 호환성
-langchain-openai     # OpenAI Chat 모델 연결
-pypdf                # PDF 로드
-docx2txt             # DOCX 로드
-unstructured         # PPTX 로드
-faiss-cpu            # 벡터 스토어 (FAISS)
-pydantic<2.0.0       # LangChain 호환성 유지
+# 4. 토픽 모델링 및 시각화 (Gensim & pyLDAvis)
+gensim==4.3.2
+pyLDAvis==3.4.1
+konlpy # Okt 형태소 분석기 사용
+langdetect==1.0.9      # <--- 언어 감지 라이브러리 추가
+nltk==3.8.1       
 
-# 5. 트렌드 예측 및 분석 (추후 사용)
-prophet
-statsmodels
-#tensorflow==2.16.1
-networkx
-python-docx
-reportlab
-fpdf
-
-# 6. 기타 유틸리티
+# 5. 기타 유틸리티
 typer
 shellingham
