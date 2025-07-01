@@ -1,17 +1,14 @@
-# ai_interface.py
-# Potens.dev API 연동을 위한 모듈
-
-import os
+import pandas as pd
 import requests
-import json
-from loguru import logger
+import os
 from dotenv import load_dotenv
+from loguru import logger
 from typing import List, Dict, Any
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
 
-# Potens.dev API의 정확한 엔드포인트 URL (공유해주신 정보 반영)
+# Potens.dev API 엔드포인트 URL
 API_URL = "https://ai.potens.ai/api/chat"
 
 def call_potens_api(prompt_message: str, api_key: str, history: List[Dict[str, str]] = None) -> str:
@@ -28,8 +25,7 @@ def call_potens_api(prompt_message: str, api_key: str, history: List[Dict[str, s
         "Content-Type": "application/json"
     }
 
-    # 요청 페이로드(본문) 설정 (공유해주신 "prompt" 형식 사용)
-    # 멀티턴 대화 맥락을 'prompt' 메시지에 포함하여 전달합니다.
+    # 요청 페이로드(본문) 설정 (멀티턴 대화 맥락을 'prompt' 메시지에 포함하여 전달)
     full_prompt = ""
     if history:
         for msg in history:
@@ -45,7 +41,7 @@ def call_potens_api(prompt_message: str, api_key: str, history: List[Dict[str, s
     try:
         logger.info(f"Potens.dev API 호출 시작 (엔드포인트: {API_URL})")
         response = requests.post(API_URL, headers=headers, json=payload, timeout=60)
-        response.raise_for_status() # HTTP 오류 발생 시 예외 발생
+        response.raise_for_status() # HTTP 오류 시 예외 발생
         
         response_json = response.json()
         
@@ -65,13 +61,54 @@ def call_potens_api(prompt_message: str, api_key: str, history: List[Dict[str, s
         logger.error(f"예상치 못한 오류 발생: {e}", exc_info=True)
         return "알 수 없는 오류가 발생했습니다."
 
+# --- AI 토픽 요약 기능 추가 ---
+# app.py에 있던 로직을 모듈화하여 재사용성 확보
+def get_topic_summaries_from_ai(topic_info_data: List[Dict[str, Any]], api_key: str) -> pd.DataFrame:
+    """
+    토픽 정보 데이터를 받아 AI API를 호출하여 각 토픽의 의미를 요약합니다.
+    (app.py에 있던 코드를 모듈화)
+    """
+    logger.info("AI를 통해 토픽 의미 요약을 시작합니다.")
+    topic_summaries = []
+    
+    for topic_info in topic_info_data:
+        topic_id = topic_info['Topic']
+        keywords = topic_info['Keywords']
+        
+        # AI에게 보낼 프롬프트 생성
+        prompt = f"You are an expert in mobility trends. Summarize the following topic based on its keywords. The topic keywords are: {keywords}. Provide a concise summary in Korean, less than 20 words."
+        
+        # call_potens_api 함수 호출 (내부 함수 재사용)
+        summary = call_potens_api(prompt, api_key=api_key)
+        
+        topic_summaries.append({
+            "Topic": topic_id,
+            "Keywords": keywords,
+            "AI Summary": summary
+        })
+        
+    logger.success("AI 토픽 요약이 완료되었습니다.")
+    return pd.DataFrame(topic_summaries)
+
+
 if __name__ == '__main__':
-    # 모듈 테스트를 위한 코드
+    # 모듈 테스트를 위한 코드 (Potens.dev API 테스트)
     test_api_key = os.getenv("POTENS_API_KEY")
     print("--- Potens.dev API 호출 테스트 ---")
     if test_api_key:
+        # call_potens_api 함수 테스트
         test_query = "미래 모빌리티 트렌드에 대해 간략히 설명해줘."
         response_text = call_potens_api(test_query, api_key=test_api_key)
-        print(f"\nAI 답변:\n{response_text}")
+        print(f"\nAI 답변 (call_potens_api):\n{response_text}")
+
+        # get_topic_summaries_from_ai 함수 테스트
+        print("\n--- AI 토픽 요약 기능 테스트 ---")
+        test_topic_data = [
+            {"Topic": 0, "Keywords": "0.047*car + 0.025*기능 + 0.025*시스템 + 0.024*data"},
+            {"Topic": 1, "Keywords": "0.034*수단 + 0.023*통합 + 0.023*교통 + 0.023*서비스 + 0.013*도시"}
+        ]
+        summaries_df = get_topic_summaries_from_ai(test_topic_data, api_key=test_api_key)
+        print("\nAI 요약 결과:")
+        print(summaries_df)
     else:
         print("\n[경고] .env 파일에 POTENS_API_KEY가 설정되지 않아 테스트를 실행할 수 없습니다.")
