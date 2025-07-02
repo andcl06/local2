@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from loguru import logger
 import requests
 import tiktoken # document.py에서 사용
-from langchain.document_loaders import PyPDFLoader, Docx2txtLoader, UnstructuredPowerPointLoader # document.py에서 사용
+from langchain.document_loaders import PyPDFLoader, Docx2txtLoader, UnstructuredPowerPointLoader, TextLoader # <-- TextLoader 임포트 확인
 from langchain.text_splitter import RecursiveCharacterTextSplitter # document.py에서 사용
 from langchain.embeddings import HuggingFaceEmbeddings # document.py에서 사용
 from langchain.vectorstores import FAISS # document.py에서 사용
@@ -80,7 +80,10 @@ def get_text(uploaded_files):
             loader = Docx2txtLoader(file_name)
         elif file_name.endswith('.pptx'):
             loader = UnstructuredPowerPointLoader(file_name)
+        elif file_name.endswith('.txt'): # <-- TXT 파일 처리 로직 추가
+            loader = TextLoader(file_name, encoding="utf-8")
         else:
+            logger.warning(f"지원하지 않는 파일 형식입니다: {file_name}")
             continue
 
         all_docs.extend(loader.load_and_split())
@@ -199,7 +202,7 @@ def trend_analysis_page():
             articles_fetched_for_session = []
             for keyword in keywords:
                 articles_fetched_for_session.extend(scrape_google_news_api(keyword, num_results=5)) # 각 키워드당 5개 기사
-
+            
             st.session_state['all_articles'] = articles_fetched_for_session
 
             if st.session_state['all_articles']:
@@ -309,7 +312,8 @@ def document_analysis_page():
         st.session_state.vectordb = None
 
     with st.sidebar:
-        uploaded_files = st.file_uploader("📎 문서 업로드", type=['pdf', 'docx', 'pptx'], accept_multiple_files=True)
+        # st.file_uploader의 type에 'txt' 추가
+        uploaded_files = st.file_uploader("📎 문서 업로드", type=['pdf', 'docx', 'pptx', 'txt'], accept_multiple_files=True) # <-- 'txt' 추가
         # API 키는 전역에서 로드되므로, 여기서는 st.text_input으로 다시 받지 않고 전역 변수 사용
         doc_api_key = os.getenv("POTENS_API_KEY") # Potens API 키 재사용
         if not doc_api_key:
@@ -328,6 +332,7 @@ def document_analysis_page():
             chunks = get_text_chunks(docs)
             vectordb = get_vectorstore(chunks)
             st.session_state.vectordb = vectordb
+            st.session_state.docs = docs # 'docs' 세션 상태 추가 (특약 생성에서 사용)
             st.success("✅ 문서 분석 완료! 질문을 입력해보세요.")
 
     if 'messages' not in st.session_state:
@@ -340,8 +345,7 @@ def document_analysis_page():
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # StreamlitChatMessageHistory는 st.session_state.messages와 연동되므로, 별도 초기화 불필요
-    # history = StreamlitChatMessageHistory(key="chat_messages") # 이미 st.session_state.messages 사용 중
+    history = StreamlitChatMessageHistory(key="chat_messages") # StreamlitChatMessageHistory 초기화
 
     if query := st.chat_input("질문을 입력해주세요."):
         st.session_state.messages.append({"role": "user", "content": query})
@@ -380,6 +384,36 @@ def document_analysis_page():
 
                 st.session_state.messages.append({"role": "assistant", "content": answer})
 
+    # --- 특약 생성 기능 (document.py에서 가져옴) ---
+    st.subheader("📑 보험 특약 생성기")
+
+    # API 키는 이미 전역에서 로드됨
+    # if not doc_api_key: # 이미 위에서 확인
+    #     st.warning("먼저 API 키를 입력해주세요.")
+    #     st.stop()
+
+    if "docs" not in st.session_state: # get_text에서 저장한 docs 사용
+        st.warning("문서를 먼저 업로드하고 처리해주세요.")
+        st.stop()
+
+    generate_special_contract = st.button("✨ 특약 생성 시작") # 버튼 추가
+
+    if generate_special_contract:
+        with st.spinner("특약 생성 중..."):
+            all_text = "\n\n".join([doc.page_content for doc in st.session_state.docs])
+            prompt = f"""
+다음은 보험 약관의 내용입니다. 이 내용을 기반으로 고객 맞춤형 '특약'을 3개 제안해주세요.
+각 특약은 제목과 설명을 포함해야 하며, 실제 약관처럼 작성해주세요.
+
+[보험 약관]:
+{all_text}
+
+[결과]:
+"""
+            answer, _ = call_potens_api(prompt, doc_api_key) # doc_api_key 사용
+            st.markdown("### ✅ 생성된 특약")
+            st.markdown(answer)
+
 
 # --- 메인 애플리케이션 라우팅 ---
 def main_app():
@@ -408,13 +442,14 @@ def main_app():
         st.session_state['report_path'] = None
     
     # document.py에서 사용되는 세션 상태 변수 초기화
-    if "vectordb" not in st.session_state:
-        st.session_state.vectordb = None
-    if 'messages' not in st.session_state:
-        st.session_state.messages = [{
-            "role": "assistant",
-            "content": "안녕하세요! 문서 기반 질문을 해보세요."
-        }]
+    # document_analysis_page 함수 내에서 초기화되므로 여기서는 제거
+    # if "vectordb" not in st.session_state:
+    #     st.session_state.vectordb = None
+    # if 'messages' not in st.session_state:
+    #     st.session_state.messages = [{
+    #         "role": "assistant",
+    #         "content": "안녕하세요! 문서 기반 질문을 해보세요."
+    #     }]
 
 
     # 라우팅 로직
@@ -428,7 +463,7 @@ def main_app():
         elif st.session_state.page == "document":
             document_analysis_page()
         else:
-            st.session_state.page = "landing" # 기본값
+            st.session_state.page = "login" # 기본값 (로그인 상태인데 페이지가 이상하면 로그인으로)
 
 
 if __name__ == "__main__":
