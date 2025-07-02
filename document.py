@@ -3,7 +3,9 @@ import tiktoken
 from loguru import logger
 import requests
 
-from langchain.document_loaders import PyPDFLoader, Docx2txtLoader, UnstructuredPowerPointLoader
+from langchain.document_loaders import (
+    PyPDFLoader, Docx2txtLoader, UnstructuredPowerPointLoader, TextLoader
+)
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
@@ -45,7 +47,8 @@ def main():
         st.session_state.vectordb = None
 
     with st.sidebar:
-        uploaded_files = st.file_uploader("📎 문서 업로드", type=['pdf', 'docx', 'pptx'], accept_multiple_files=True)
+        selected_menu = st.selectbox("📌 메뉴 선택", ["최신 QA", "특약 생성"])
+        uploaded_files = st.file_uploader("📎 문서 업로드", type=['pdf', 'docx', 'pptx', 'txt'], accept_multiple_files=True)
         api_key = st.text_input("🔑 Potens API Key", type="password")
         process = st.button("📚 문서 처리")
 
@@ -59,37 +62,39 @@ def main():
             chunks = get_text_chunks(docs)
             vectordb = get_vectorstore(chunks)
             st.session_state.vectordb = vectordb
-            st.success("✅ 문서 분석 완료! 질문을 입력해보세요.")
+            st.session_state.docs = docs
+            st.success("✅ 문서 분석 완료! 메뉴를 선택해 진행하세요.")
 
-    if 'messages' not in st.session_state:
-        st.session_state.messages = [{
-            "role": "assistant",
-            "content": "안녕하세요! 문서 기반 질문을 해보세요."
-        }]
+    if selected_menu == "최신 QA":
+        if 'messages' not in st.session_state:
+            st.session_state.messages = [{
+                "role": "assistant",
+                "content": "안녕하세요! 문서 기반 질문을 해보세요."
+            }]
 
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
 
-    history = StreamlitChatMessageHistory(key="chat_messages")
+        history = StreamlitChatMessageHistory(key="chat_messages")
 
-    if query := st.chat_input("질문을 입력해주세요."):
-        st.session_state.messages.append({"role": "user", "content": query})
+        if query := st.chat_input("질문을 입력해주세요."):
+            st.session_state.messages.append({"role": "user", "content": query})
 
-        with st.chat_message("user"):
-            st.markdown(query)
+            with st.chat_message("user"):
+                st.markdown(query)
 
-        with st.chat_message("assistant"):
-            if not st.session_state.vectordb:
-                st.warning("먼저 문서를 업로드하고 처리해야 합니다.")
-                st.stop()
+            with st.chat_message("assistant"):
+                if not st.session_state.vectordb:
+                    st.warning("먼저 문서를 업로드하고 처리해야 합니다.")
+                    st.stop()
 
-            with st.spinner("답변 생성 중..."):
-                retriever = st.session_state.vectordb.as_retriever(search_type="similarity", k=3)
-                docs = retriever.get_relevant_documents(query)
+                with st.spinner("답변 생성 중..."):
+                    retriever = st.session_state.vectordb.as_retriever(search_type="similarity", k=3)
+                    docs = retriever.get_relevant_documents(query)
 
-                context = "\n\n".join([doc.page_content for doc in docs])
-                final_prompt = f"""다음 문서를 참고하여 질문에 답하세요.
+                    context = "\n\n".join([doc.page_content for doc in docs])
+                    final_prompt = f"""다음 문서를 참고하여 질문에 답하세요.
 
 [문서 내용]:
 {context}
@@ -99,16 +104,41 @@ def main():
 
 [답변]:
 """
+                    answer, _ = call_potens_api(final_prompt, api_key)
 
-                answer, _ = call_potens_api(final_prompt, api_key)
+                    st.markdown(answer)
+                    with st.expander("📄 참고 문서"):
+                        for doc in docs:
+                            st.markdown(f"**출처**: {doc.metadata.get('source', '알 수 없음')}")
+                            st.markdown(doc.page_content)
 
-                st.markdown(answer)
-                with st.expander("📄 참고 문서"):
-                    for doc in docs:
-                        st.markdown(f"**출처**: {doc.metadata.get('source', '알 수 없음')}")
-                        st.markdown(doc.page_content)
+                    st.session_state.messages.append({"role": "assistant", "content": answer})
 
-                st.session_state.messages.append({"role": "assistant", "content": answer})
+    elif selected_menu == "특약 생성":
+        st.subheader("📑 보험 특약 생성기")
+
+        if not api_key:
+            st.warning("먼저 API 키를 입력해주세요.")
+            st.stop()
+
+        if "docs" not in st.session_state:
+            st.warning("문서를 먼저 업로드하고 처리해주세요.")
+            st.stop()
+
+        with st.spinner("특약 생성 중..."):
+            all_text = "\n\n".join([doc.page_content for doc in st.session_state.docs])
+            prompt = f"""
+다음은 보험 약관의 내용입니다. 이 내용을 기반으로 고객 맞춤형 '특약'을 3개 제안해주세요.
+각 특약은 제목과 설명을 포함해야 하며, 실제 약관처럼 작성해주세요.
+
+[보험 약관]:
+{all_text}
+
+[결과]:
+"""
+            answer, _ = call_potens_api(prompt, api_key)
+            st.markdown("### ✅ 생성된 특약")
+            st.markdown(answer)
 
 
 def tiktoken_len(text):
@@ -130,6 +160,8 @@ def get_text(docs):
             loader = Docx2txtLoader(file_name)
         elif file_name.endswith('.pptx'):
             loader = UnstructuredPowerPointLoader(file_name)
+        elif file_name.endswith('.txt'):
+            loader = TextLoader(file_name, encoding="utf-8")
         else:
             continue
 
