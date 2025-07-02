@@ -19,3 +19,4 @@ matplotlib==3.10.3
 seaborn==0.13.2
 altair==5.5.0
 langchain-community
+tiktoken
