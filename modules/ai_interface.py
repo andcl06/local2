@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from loguru import logger
 from typing import List, Dict, Any
+import json # JSON 로깅을 위해 임포트
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
@@ -14,6 +15,8 @@ API_URL = "https://ai.potens.ai/api/chat"
 def call_potens_api(prompt_message: str, api_key: str, history: List[Dict[str, str]] = None) -> str:
     """
     주어진 프롬프트 메시지로 Potens.dev API를 호출하고 응답을 반환합니다.
+    API 호출 타임아웃 시간을 5분(300초)으로 늘려 안정성을 개선합니다.
+    오류 발생 시 응답 본문을 로깅합니다.
     """
     if not api_key:
         logger.error("API 키가 누락되었습니다. Potens.dev API 호출을 중단합니다.")
@@ -37,10 +40,13 @@ def call_potens_api(prompt_message: str, api_key: str, history: List[Dict[str, s
     payload = {
         "prompt": full_prompt # AI에게 전달할 핵심 메시지
     }
-    
+
     try:
         logger.info(f"Potens.dev API 호출 시작 (엔드포인트: {API_URL})")
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=60)
+        # --- 디버깅을 위해 전송될 payload 로깅 ---
+        logger.debug(f"Sending payload: {json.dumps(payload, ensure_ascii=False, indent=2)}") # <-- 추가된 부분
+        
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=300) 
         response.raise_for_status() # HTTP 오류 시 예외 발생
         
         response_json = response.json()
@@ -55,18 +61,20 @@ def call_potens_api(prompt_message: str, api_key: str, history: List[Dict[str, s
             return "API 응답 형식이 올바르지 않습니다. 개발자에게 문의해주세요."
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"API 호출 오류 발생 (네트워크/타임아웃/HTTP): {e}", exc_info=True)
+        # 오류 발생 시 응답 본문 로깅 추가
+        error_message = f"API 호출 오류 발생 (네트워크/타임아웃/HTTP): {e}"
+        if e.response is not None:
+            error_message += f" Response content: {e.response.text}" 
+        logger.error(error_message, exc_info=True)
         return "API 호출에 실패했습니다. 네트워크 상태를 확인해주세요."
     except Exception as e:
         logger.error(f"예상치 못한 오류 발생: {e}", exc_info=True)
         return "알 수 없는 오류가 발생했습니다."
 
 # --- AI 토픽 요약 기능 추가 ---
-# app.py에 있던 로직을 모듈화하여 재사용성 확보
 def get_topic_summaries_from_ai(topic_info_data: List[Dict[str, Any]], api_key: str) -> pd.DataFrame:
     """
     토픽 정보 데이터를 받아 AI API를 호출하여 각 토픽의 의미를 요약합니다.
-    (app.py에 있던 코드를 모듈화)
     """
     logger.info("AI를 통해 토픽 의미 요약을 시작합니다.")
     topic_summaries = []
@@ -75,10 +83,8 @@ def get_topic_summaries_from_ai(topic_info_data: List[Dict[str, Any]], api_key: 
         topic_id = topic_info['Topic']
         keywords = topic_info['Keywords']
         
-        # AI에게 보낼 프롬프트 생성
         prompt = f"You are an expert in mobility trends. Summarize the following topic based on its keywords. The topic keywords are: {keywords}. Provide a concise summary in Korean, less than 20 words."
         
-        # call_potens_api 함수 호출 (내부 함수 재사용)
         summary = call_potens_api(prompt, api_key=api_key)
         
         topic_summaries.append({
@@ -112,3 +118,4 @@ if __name__ == '__main__':
         print(summaries_df)
     else:
         print("\n[경고] .env 파일에 POTENS_API_KEY가 설정되지 않아 테스트를 실행할 수 없습니다.")
+
